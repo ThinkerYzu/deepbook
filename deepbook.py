@@ -42,16 +42,18 @@ def run_gui():
             # tk text always append a new line.
             txt = txt[:-1]
             pass
+
         cipher = encrypt(txt.encode('utf-8'), enc_key)
         fo = open('deepbook.gpg', 'bw')
         fo.write(cipher)
         fo.close()
+
         bt_save['state'] = 'disabled'
         status_text.set('Updated')
         text.edit_modified('False')
         pass
 
-    def do_search(pos):
+    def start_search(pos):
         search_entry.grid(row=1, column=1, sticky='w')
         search_entry.focus_force()
         pass
@@ -63,7 +65,7 @@ def run_gui():
         search_entry.delete('0', 'end')
         pass
 
-    def do_search_cont(pos):
+    def search_cont(pos):
         remove_found()
         ptn = search_entry.get()
         if not ptn:
@@ -79,7 +81,7 @@ def run_gui():
         text.mark_set('insert', pos)
         pass
 
-    def do_search_next(pos):
+    def search_next(pos):
         remove_found()
         ptn = search_entry.get()
         if not ptn:
@@ -102,47 +104,51 @@ def run_gui():
             pass
         pass
 
-    do_search.doing = False
+    def load_file():
+        try:
+            fo = open('deepbook.gpg', 'br')
+            cipher = fo.read()
+            fo.close()
+            plaintext = decrypt(cipher, enc_key).decode('utf-8')
+            text.insert('1.0', plaintext)
+            text.edit_modified(False)
+        except:
+            pass
+        pass
 
     window = tk.Tk(className='DeepBook')
     window.wm_title('DeepBook')
 
-    window.rowconfigure(0, minsize=800, weight=1)
+    window.rowconfigure(0, minsize=600, weight=1)
     window.columnconfigure(1, minsize=800, weight=1)
 
     text = ScrolledText(window)
-    fr_buttons = tk.Frame(window)
-    bt_save = tk.Button(fr_buttons, text="Save", command=handle_save)
+    text.grid(row=0, column=1, sticky="nsew")
 
+    fr_buttons = tk.Frame(window)
+
+    bt_save = tk.Button(fr_buttons, text="Save", command=handle_save)
+    bt_save['state'] = 'disabled'
     bt_save.grid(row=0, column=0)
 
     fr_buttons.grid(row=0, column=0, sticky="ns")
-    text.grid(row=0, column=1, sticky="nsew")
+
+    search_entry = tk.Entry(window, font=font.Font(size=7))
+
     status_text = tk.StringVar()
     status_text.set('Updated')
     status = tk.Label(window, font=font.Font(size=7), foreground='grey', textvariable=status_text)
     status.grid(row=1, column=0, pady=3)
 
-    try:
-        fo = open('deepbook.gpg', 'br')
-        cipher = fo.read()
-        fo.close()
-        plaintext = decrypt(cipher, enc_key).decode('utf-8')
-        text.insert('1.0', plaintext)
-        text.edit_modified(False)
-    except:
-        pass
+    load_file()
 
     text.tag_config('found', background='pink')
 
-    search_entry = tk.Entry(window, font=font.Font(size=7))
-
-    text.bind('<Control-KeyPress-s>', func=do_search)
+    text.bind('<Control-KeyPress-s>', func=start_search)
     text.bind('<KeyRelease>', func=do_modified)
-    bt_save['state'] = 'disabled'
-    search_entry.bind('<Control-KeyPress-s>', func=do_search_next)
+    search_entry.bind('<Control-KeyPress-s>', func=search_next)
     search_entry.bind('<Escape>', func=stop_search)
-    search_entry.bind('<KeyRelease>', func=do_search_cont)
+    search_entry.bind('<KeyRelease>', func=search_cont)
     window.mainloop()
     pass
 
