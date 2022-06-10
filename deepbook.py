@@ -1,7 +1,9 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
+from tkinter import font
 import os
 import subprocess
+import argparse
 
 def get_gpg_enc_keys():
     fo = os.popen('gpg -k --with-colons', 'r')
@@ -44,6 +46,9 @@ def run_gui():
         fo = open('deepbook.gpg', 'bw')
         fo.write(cipher)
         fo.close()
+        bt_save['state'] = 'disabled'
+        status_text.set('Updated')
+        text.edit_modified('False')
         pass
 
     def do_search(pos):
@@ -64,6 +69,8 @@ def run_gui():
         if not ptn:
             return
         pos = text.search(ptn, 'insert')
+        if not pos:
+            return
         last = [int(v) for v in pos.split('.')]
         last[1] += len(ptn)
         last = '.'.join([str(v) for v in last])
@@ -78,6 +85,8 @@ def run_gui():
         if not ptn:
             return
         pos = text.search(ptn, 'insert+1c')
+        if not pos:
+            return
         last = [int(v) for v in pos.split('.')]
         last[1] += len(ptn)
         last = '.'.join([str(v) for v in last])
@@ -86,10 +95,17 @@ def run_gui():
         text.mark_set('insert', pos)
         pass
 
+    def do_modified(pos):
+        if text.edit_modified():
+            status_text.set('Modified')
+            bt_save['state'] = 'normal'
+            pass
+        pass
+
     do_search.doing = False
 
-    window = tk.Tk()
-    window.title("DeepBook")
+    window = tk.Tk(className='DeepBook')
+    window.wm_title('DeepBook')
 
     window.rowconfigure(0, minsize=800, weight=1)
     window.columnconfigure(1, minsize=800, weight=1)
@@ -102,6 +118,10 @@ def run_gui():
 
     fr_buttons.grid(row=0, column=0, sticky="ns")
     text.grid(row=0, column=1, sticky="nsew")
+    status_text = tk.StringVar()
+    status_text.set('Updated')
+    status = tk.Label(window, font=font.Font(size=7), foreground='grey', textvariable=status_text)
+    status.grid(row=1, column=0, pady=3)
 
     try:
         fo = open('deepbook.gpg', 'br')
@@ -109,21 +129,32 @@ def run_gui():
         fo.close()
         plaintext = decrypt(cipher, enc_key).decode('utf-8')
         text.insert('1.0', plaintext)
+        text.edit_modified(False)
     except:
         pass
 
     text.tag_config('found', background='pink')
 
-    search_entry = tk.Entry(window)
+    search_entry = tk.Entry(window, font=font.Font(size=7))
 
     text.bind('<Control-KeyPress-s>', func=do_search)
+    text.bind('<KeyRelease>', func=do_modified)
+    bt_save['state'] = 'disabled'
     search_entry.bind('<Control-KeyPress-s>', func=do_search_next)
     search_entry.bind('<Escape>', func=stop_search)
     search_entry.bind('<KeyRelease>', func=do_search_cont)
     window.mainloop()
     pass
 
-ekeys = get_gpg_enc_keys()
-enc_key = ekeys[0]
+parser = argparse.ArgumentParser(description='DeepBook is a simple encrypted notebook')
+parser.add_argument('--key', dest='key', help='Key ID for encryption (check: gpg -K)')
+args = parser.parse_args()
+
+if not args.key:
+    ekeys = get_gpg_enc_keys()
+    enc_key = ekeys[0]
+else:
+    enc_key = args.key
+    pass
 
 run_gui()
