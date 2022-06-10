@@ -1,19 +1,22 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 from tkinter import font
-import os
 import subprocess
 import argparse
 
+GPG = 'gpg'
+
 def get_gpg_enc_keys():
-    fo = os.popen('gpg -k --with-colons', 'r')
-    lines = [line.split(':') for line in fo.readlines()]
+    p = subprocess.Popen([GPG, '-k', '--with-colons'],
+                          stdout=subprocess.PIPE)
+    (listtxt, err) = p.communicate(timeout=15)
+    lines = [line.split(':') for line in listtxt.decode('utf-8').split('\n')]
     ekeys = [l[4]
              for l in lines if l[0] == 'sub' and l[11] == 'e' and l[1] == 'u']
     return ekeys
 
 def encrypt(plaintext, key):
-    p = subprocess.Popen(['gpg', '--encrypt', '--recipient', key],
+    p = subprocess.Popen([GPG, '--encrypt', '--recipient', key],
                          shell=False,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)
@@ -21,7 +24,7 @@ def encrypt(plaintext, key):
     return cipher
 
 def decrypt(cipher, key):
-    p = subprocess.Popen(['gpg', '--decrypt', '--recipient', key],
+    p = subprocess.Popen([GPG, '--decrypt', '--recipient', key],
                          shell=False,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)
@@ -154,7 +157,12 @@ def run_gui():
 
 parser = argparse.ArgumentParser(description='DeepBook is a simple encrypted notebook')
 parser.add_argument('--key', dest='key', help='Key ID for encryption (check: gpg -K)')
+parser.add_argument('--gpg', dest='gpg', help='Path of gpg binary')
 args = parser.parse_args()
+
+if args.gpg:
+    GPG = args.gpg
+    pass
 
 if not args.key:
     ekeys = get_gpg_enc_keys()
