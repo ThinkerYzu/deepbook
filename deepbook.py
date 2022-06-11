@@ -9,7 +9,7 @@ GPG = 'gpg'
 def get_gpg_enc_keys():
     p = subprocess.Popen([GPG, '-k', '--with-colons'],
                           stdout=subprocess.PIPE)
-    (listtxt, err) = p.communicate(timeout=15)
+    (listtxt, err) = p.communicate()
     lines = [line.split(':') for line in listtxt.decode('utf-8').split('\n')]
     ekeys = [l[4]
              for l in lines if l[0] == 'sub' and l[11] == 'e' and l[1] == 'u']
@@ -20,7 +20,7 @@ def encrypt(plaintext, key):
                          shell=False,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)
-    (cipher, err) = p.communicate(input=plaintext, timeout=15)
+    (cipher, err) = p.communicate(input=plaintext)
     return cipher
 
 def decrypt(cipher, key):
@@ -28,7 +28,7 @@ def decrypt(cipher, key):
                          shell=False,
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE)
-    (plaintext, err) = p.communicate(input=cipher, timeout=15)
+    (plaintext, err) = p.communicate(input=cipher)
     return plaintext
 
 def run_gui():
