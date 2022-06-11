@@ -1,34 +1,56 @@
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
-from tkinter import font
+from tkinter import font, messagebox
 import subprocess
 import argparse
 
 GPG = 'gpg'
 
 def get_gpg_enc_keys():
-    p = subprocess.Popen([GPG, '-k', '--with-colons'],
-                          stdout=subprocess.PIPE)
+    try:
+        p = subprocess.Popen([GPG, '-k', '--with-colons'],
+                             stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        messagebox.showerror('GPG error',
+                             '"%s" is not found!  Please install GPG properly.' % GPG)
+        raise 'GPG error'
     (listtxt, err) = p.communicate()
+
     lines = [line.split(':') for line in listtxt.decode('utf-8').split('\n')]
     ekeys = [l[4]
              for l in lines if l[0] == 'sub' and l[11] == 'e' and l[1] == 'u']
     return ekeys
 
 def encrypt(plaintext, key):
-    p = subprocess.Popen([GPG, '--encrypt', '--recipient', key],
-                         shell=False,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+    try:
+        p = subprocess.Popen([GPG, '--encrypt', '--recipient', key],
+                             shell=False,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        messagebox.showerror('GPG error',
+                             '"%s" is not found!  Please install GPG properly.' % GPG)
+        raise 'GPG error'
     (cipher, err) = p.communicate(input=plaintext)
+
+    if p.returncode:
+        messagebox.showerror('GPG error',
+                             '"%s" fails to encrypt with the key "%s".  (exit: %d)' % (GPG, key, p.returncode))
+        raise 'GPG error'
     return cipher
 
-def decrypt(cipher, key):
-    p = subprocess.Popen([GPG, '--decrypt', '--recipient', key],
-                         shell=False,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+def decrypt(cipher):
+    try:
+        p = subprocess.Popen([GPG, '--decrypt'],
+                             shell=False,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+    except FileNotFoundError:
+        messagebox.showerror('GPG error',
+                             '"%s" is not found!  Please install GPG properly.' % GPG)
+        raise 'GPG error'
     (plaintext, err) = p.communicate(input=cipher)
+
     return plaintext
 
 def run_gui():
@@ -46,7 +68,11 @@ def run_gui():
             txt = txt[:-1]
             pass
 
-        cipher = encrypt(txt.encode('utf-8'), enc_key)
+        try:
+            cipher = encrypt(txt.encode('utf-8'), enc_key)
+        except:
+            window.quit()
+            return
         fo = open('deepbook.gpg', 'bw')
         fo.write(cipher)
         fo.close()
@@ -112,7 +138,11 @@ def run_gui():
             fo = open('deepbook.gpg', 'br')
             cipher = fo.read()
             fo.close()
-            plaintext = decrypt(cipher, enc_key).decode('utf-8')
+            try:
+                plaintext = decrypt(cipher).decode('utf-8')
+            except:
+                window.quit()
+                return
             text.insert('1.0', plaintext)
             text.edit_modified(False)
         except:
@@ -166,6 +196,10 @@ if args.gpg:
 
 if not args.key:
     ekeys = get_gpg_enc_keys()
+    if len(ekeys) <= 0:
+        w = tk.Tk()
+        w.showerror('Key Error', 'Can not found an encryption key.')
+        sys.exit(2)
     enc_key = ekeys[0]
 else:
     enc_key = args.key
